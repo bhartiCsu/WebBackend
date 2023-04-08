@@ -1,27 +1,46 @@
 from flask import Flask, request, jsonify
 from flask_jwt_extended import create_access_token
 import re
+import os
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects import registry
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
+from werkzeug.utils import secure_filename
+from pathlib import Path
 
 
-registry.register("pymysql", "sqlalchemy.dialects.mysql.pymysql", "MySQLDialect_pymysql")
+registry.register(
+    "pymysql", "sqlalchemy.dialects.mysql.pymysql", "MySQLDialect_pymysql")
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=1440)
 jwt = JWTManager(app)
 
+ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'docx'])
+
+# Get the current directory of the script or Flask app
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# Define the upload folder as a subdirectory within the current directory
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+
+# Create the upload folder if it does not exist
+Path(UPLOAD_FOLDER).mkdir(parents=True, exist_ok=True)
+
+# Use the upload folder path in the Flask app configuration
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 
 if __name__ == '__main__':
-    app.run(host ="localhost", port = int("5000"), debug=True)
+    app.run(host="localhost", port=int("5000"), debug=True)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'pymysql://root:rootbharti@localhost:3306/User'
 db = SQLAlchemy(app)
+
 
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -34,6 +53,54 @@ class Users(db.Model):
     def __repr__(self):
         return f"User(username='{self.username}', email='{self.email}', signup_date='{self.signup_date}', role='{self.role}')"
 
+
+def allowed_file(filename):
+	return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/message', methods=['GET'])
+def check_message():
+    # Get the current date and time
+    now = datetime.now()
+    
+    #Get weekday
+    weekday = now.strftime("%A")
+
+    # Create the message with the weekday name
+    message = f"Happy {weekday}!"
+
+    return jsonify({'message': message})
+
+
+@app.route('/file-upload', methods=['POST'])
+def upload_file():
+    if 'file' in request.files:
+        file_size = len(request.files['file'].read())
+    
+    if file_size > 16 * 1024 * 1024:
+        resp = jsonify({'message' : 'File size is too large'})
+        resp.status_code = 413 # Request Entity Too Large
+        return resp
+        
+    if 'file' not in request.files:
+        resp = jsonify({'message': 'No file part in the request'})
+        resp.status_code = 400
+        return resp
+    file = request.files['file']
+    if file.filename == '':
+        resp = jsonify({'message': 'No file selected for uploading'})
+        resp.status_code = 400
+        return resp   
+        
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        resp = jsonify({'message' : 'File successfully uploaded'})
+        resp.status_code = 201
+        return resp
+    else:
+        resp = jsonify({'message' : 'Allowed file types are txt, pdf, png, jpg, jpeg, gif'})
+        resp.status_code = 400
+        return resp
 
 @app.route('/signup/user', methods=['POST'])
 def user_signup():
@@ -152,4 +219,3 @@ def user_signin():
 
     # Return the access token
     return jsonify({'access_token': access_token}), 200
-
