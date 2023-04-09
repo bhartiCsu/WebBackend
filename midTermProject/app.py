@@ -5,7 +5,6 @@ import os
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects import registry
-from flask_file_upload.file_upload import FileUpload
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
@@ -13,12 +12,12 @@ import urllib.parse
 from pathlib import Path
 from werkzeug.utils import secure_filename
 
-password = urllib.parse.quote_plus('Mandate1@')
-db_url = f"pymysql://root:{password}@localhost: 3306/user"
+
 
 registry.register("pymysql", "sqlalchemy.dialects.mysql.pymysql", "MySQLDialect_pymysql")
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'pymysql://root:rootbharti@localhost:3306/User'
 
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=1440)
@@ -42,7 +41,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 if __name__ == '__main__':
     app.run(host="localhost", port=int("5000"), debug=True)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+
 db = SQLAlchemy(app)
 
 
