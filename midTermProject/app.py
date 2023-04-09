@@ -1,21 +1,25 @@
 from flask import Flask, request, jsonify
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import re
 import os
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects import registry
+from flask_file_upload.file_upload import FileUpload
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import JWTManager
 from datetime import timedelta
-from werkzeug.utils import secure_filename
+import urllib.parse
 from pathlib import Path
+from werkzeug.utils import secure_filename
 
+password = urllib.parse.quote_plus('Mandate1@')
+db_url = f"pymysql://root:{password}@localhost: 3306/user"
 
-registry.register(
-    "pymysql", "sqlalchemy.dialects.mysql.pymysql", "MySQLDialect_pymysql")
+registry.register("pymysql", "sqlalchemy.dialects.mysql.pymysql", "MySQLDialect_pymysql")
 
 app = Flask(__name__)
+
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=1440)
 jwt = JWTManager(app)
@@ -38,7 +42,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 if __name__ == '__main__':
     app.run(host="localhost", port=int("5000"), debug=True)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'pymysql://root:rootbharti@localhost:3306/User'
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 db = SQLAlchemy(app)
 
 
@@ -57,12 +61,13 @@ class Users(db.Model):
 def allowed_file(filename):
 	return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/message', methods=['GET'])
+
+@app.route('/publicRout', methods=['GET'])
 def check_message():
     # Get the current date and time
     now = datetime.now()
-    
-    #Get weekday
+
+    # Get weekday
     weekday = now.strftime("%A")
 
     # Create the message with the weekday name
@@ -73,34 +78,37 @@ def check_message():
 
 @app.route('/file-upload', methods=['POST'])
 def upload_file():
-    if 'file' in request.files:
-        file_size = len(request.files['file'].read())
-    
-    if file_size > 16 * 1024 * 1024:
-        resp = jsonify({'message' : 'File size is too large'})
-        resp.status_code = 413 # Request Entity Too Large
-        return resp
-        
     if 'file' not in request.files:
         resp = jsonify({'message': 'No file part in the request'})
         resp.status_code = 400
         return resp
+    if 'file' in request.files:
+        file_size = len(request.files['file'].read())
+
+    if file_size > 16 * 1024 * 1024:
+        resp = jsonify({'message': 'File size is too large'})
+        resp.status_code = 413  # Request Entity Too Large
+        return resp
+
+   
     file = request.files['file']
     if file.filename == '':
         resp = jsonify({'message': 'No file selected for uploading'})
         resp.status_code = 400
-        return resp   
-        
+        return resp
+
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        resp = jsonify({'message' : 'File successfully uploaded'})
+        resp = jsonify({'message': 'File successfully uploaded'})
         resp.status_code = 201
         return resp
     else:
-        resp = jsonify({'message' : 'Allowed file types are txt, pdf, png, jpg, jpeg, gif'})
+        resp = jsonify(
+            {'message': 'Allowed file types are txt, pdf, png, jpg, jpeg, gif'})
         resp.status_code = 400
         return resp
+    
 
 @app.route('/signup/user', methods=['POST'])
 def user_signup():
@@ -108,7 +116,7 @@ def user_signup():
     # Get the user credentials from the request
     username = request.json.get('username', None)
     password = request.json.get('password', None)
-    email    = request.json.get('email'   , None)
+    email = request.json.get('email', None)
 
     # Check if the user credentials were provided
     if not username or not password:
@@ -120,14 +128,13 @@ def user_signup():
     if user_exists:
         return jsonify({'message': 'Username is already Taken'}), 409
     elif email_exists:
-            return jsonify({'error': 'Email already taken'}), 409
+        return jsonify({'error': 'Email already taken'}), 409
     elif len(username) < 3:
         return jsonify({'message': 'Username must be at least 3 characters long.'}), 400
     elif len(password) < 8:
-        return jsonify({'message': 'Password must be at least 8 characters long.'}), 400 
+        return jsonify({'message': 'Password must be at least 8 characters long.'}), 400
     elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
-        return jsonify({'message': 'Invalid Email id'}), 409    
-    
+        return jsonify({'message': 'Invalid Email id'}), 409
 
     # Add the user to the normal_users list
     user = Users(username=username, password=password, email=email)
@@ -137,13 +144,14 @@ def user_signup():
     # Return a success message
     return jsonify({'message': 'User created successfully'}), 201
 
+
 @app.route('/signup/admin', methods=['POST'])
 def admin_signup():
     msg = ''
     # Get the user credentials from the request
     username = request.json.get('username', None)
     password = request.json.get('password', None)
-    email    = request.json.get('email'   , None)
+    email = request.json.get('email', None)
 
     # Check if the user credentials were provided
     if not username or not password:
@@ -155,19 +163,19 @@ def admin_signup():
     if user_exists:
         return jsonify({'message': 'Username is already Taken'}), 409
     elif email_exists:
-            return jsonify({'error': 'Email already taken'}), 409
+        return jsonify({'error': 'Email already taken'}), 409
     elif len(username) < 3:
         return jsonify({'message': 'Username must be at least 3 characters long.'}), 400
     elif len(password) < 8:
-        return jsonify({'message': 'Password must be at least 8 characters long.'}), 400 
+        return jsonify({'message': 'Password must be at least 8 characters long.'}), 400
     elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
-        return jsonify({'message': 'Invalid Email id'}), 409    
-    
+        return jsonify({'message': 'Invalid Email id'}), 409
+
      # Hash the password
     hashed_password = generate_password_hash(password)
 
     # Add the user to the normal_users list
-    user = Users(username=username, password=hashed_password, email=email, role='admin')
+    user = Users(username=username, password=hashed_password,email=email, role='admin')
     db.session.add(user)
     db.session.commit()
 
@@ -194,7 +202,7 @@ def admin_signin():
         return jsonify({'error': 'Invalid password'}), 401
 
     # Create an access token for the user
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity= (user.username))
 
     # Return the access token
     return jsonify({'access_token': access_token}), 200
@@ -215,7 +223,15 @@ def user_signin():
         return jsonify({'error': 'Invalid username or password'}), 401
 
     # Create an access token for the user
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity= username)
 
     # Return the access token
     return jsonify({'access_token': access_token}), 200
+
+
+@app.route('/testAuthentication', methods=['GET'])
+@jwt_required()
+def testAuthentication():
+    current_user = get_jwt_identity()
+    return jsonify({'Authentication Succssfull': current_user}), 200
+
