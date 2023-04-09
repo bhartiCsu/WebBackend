@@ -57,7 +57,7 @@ class Users(db.Model):
 def allowed_file(filename):
 	return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/message', methods=['GET'])
+@app.route('/publicRout', methods=['GET'])
 def check_message():
     # Get the current date and time
     now = datetime.now()
