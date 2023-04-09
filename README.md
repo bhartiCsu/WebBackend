@@ -1,7 +1,8 @@
 Team Members:
 
-Bharti Moryani
-Mohammed Ali
+1. Bharti Moryani
+
+2. Mohammed Ali
 
 To run the program:
 
