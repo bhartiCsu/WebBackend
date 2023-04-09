@@ -1,5 +1,3 @@
-MidTerm Project
-
 Team Members:
 
 Bharti Moryani
